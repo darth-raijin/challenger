@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package protos;
+import "google/protobuf/timestamp.proto";
+
+message Order {
+  string exchange = 1;  // Identifier for the exchange
+  string buySymbol = 2;  // Trading symbol for the token being bought
+  string sellSymbol = 3;  // Trading symbol for the token being bought
+  OrderType type = 4;  // Type of the order, e.g., limit, market
+  OrderSide side = 5;  // Buy or sell
+  double quantity = 6;  // Quantity of the asset to buy or sell
+  double price = 7;  // Price per unit for limit orders; ignored if market order
+  OrderStatus status = 8;  // Status of the order, e.g., pending, completed
+}
+
+// OrderType enumerates the different types of orders
+enum OrderType {
+  UNKNOWN = 0;  // Default Value, should not be used
+  MARKET = 1;  // Market order
+  LIMIT = 2;  // Limit order
+  STOP_LOSS = 3;  // Stop loss order
+  STOP_LOSS_LIMIT = 4;  // Stop loss limit order
+  TAKE_PROFIT = 5;  // Take profit order
+  TAKE_PROFIT_LIMIT = 6;  // Take profit limit order
+}
+
+// OrderSide enumerates the side of the order, buy or sell
+enum OrderSide {
+  UNDEFINED = 0;  // Default Value, should not be used
+  BUY = 1;  // Buy order
+  SELL = 2;  // Sell order
+}
+
+// OrderStatus enumerates possible states of the order
+enum OrderStatus {
+  PENDING = 0;  // Order has been placed but not processed yet
+  FILLED = 1;  // Order has been completely filled
+  PARTIALLY_FILLED = 2;  // Order has been partially filled
+  CANCELED = 3;  // Order has been canceled
+  REJECTED = 4;  // Order has been rejected
+  EXPIRED = 5;  // Order has expired
+}
