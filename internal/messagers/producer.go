@@ -28,12 +28,6 @@ type ProducerOptions struct {
 	ReadChannel     <-chan PublishInput
 }
 
-type PublishInput struct {
-	Key     []byte
-	Message proto.Message
-	Topic   string
-}
-
 func NewProducer(options ProducerOptions) (ProducerInterface, error) {
 	if len(options.BoostrapServers) == 0 {
 		return nil, fmt.Errorf("brokers list must not be empty")
@@ -79,6 +73,13 @@ func (p *Producer) Start(ctx context.Context) error {
 	}
 }
 
+type PublishInput struct {
+	Key     []byte
+	Message proto.Message
+	Topic   string
+}
+
+// publishMessage takes a flexible aporoach to publishing messages to Kafka. It accepts a PublishInput struct, which holds topic, key, and message.
 func (p *Producer) publishMessage(ctx context.Context, input PublishInput) error {
 	body, err := proto.Marshal(input.Message)
 	if err != nil {
@@ -99,6 +100,7 @@ func (p *Producer) publishMessage(ctx context.Context, input PublishInput) error
 	return nil
 }
 
+// Close closes the Kafka writer connection.
 func (p *Producer) Close() error {
 	if err := p.writer.Close(); err != nil {
 		p.logger.Error("Failed to close Kafka writer", zap.Error(err))
@@ -108,6 +110,7 @@ func (p *Producer) Close() error {
 	return nil
 }
 
+// CreateTopic creates a new topic in Kafka. This should be used to create topics before starting the producer.
 func (p *Producer) CreateTopic(topic string) error {
 	err := p.connection.CreateTopics(kafka.TopicConfig{
 		Topic:             topic,
