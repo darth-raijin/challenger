@@ -15,12 +15,13 @@ import (
 type ConsumerInterface interface {
 	ConsumeMessage(ctx context.Context, messages chan<- proto.Message, prototype proto.Message) error
 	Close() error
-	exponentialBackoff(min, max, attempt int) time.Duration
+	CreateTopic(topic string) error
 }
 
 type Consumer struct {
-	reader *kafka.Reader
-	logger *zap.Logger
+	reader     *kafka.Reader
+	logger     *zap.Logger
+	connection *kafka.Conn
 }
 
 type ConsumerOptions struct {
@@ -35,6 +36,12 @@ func NewConsumer(options ConsumerOptions) (ConsumerInterface, error) {
 		return nil, fmt.Errorf("brokers list must not be empty")
 	}
 
+	conn, err := kafka.Dial("tcp", options.BoostrapServers[0])
+	if err != nil {
+		options.Logger.Error("Failed to connect to Kafka", zap.Error(err))
+		return nil, err
+	}
+
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:        options.BoostrapServers,
 		Topic:          options.Topic,
@@ -45,8 +52,9 @@ func NewConsumer(options ConsumerOptions) (ConsumerInterface, error) {
 	})
 
 	return &Consumer{
-		reader: reader,
-		logger: options.Logger,
+		reader:     reader,
+		logger:     options.Logger,
+		connection: conn,
 	}, nil
 }
 
@@ -89,5 +97,18 @@ func (c *Consumer) Close() error {
 		return err
 	}
 	c.logger.Info("Consumer connection closed")
+	return nil
+}
+
+func (c *Consumer) CreateTopic(topic string) error {
+	err := c.connection.CreateTopics(kafka.TopicConfig{
+		Topic:         topic,
+		NumPartitions: 1,
+	})
+	if err != nil {
+		c.logger.Error("Failed to create topic", zap.Error(err))
+		return err
+	}
+	c.logger.Info("Topic created successfully")
 	return nil
 }

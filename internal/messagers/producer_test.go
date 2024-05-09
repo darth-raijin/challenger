@@ -106,3 +106,49 @@ func TestPublishMessage(t *testing.T) {
 		assert.Equal(t, expectedMessage.Status, receivedMessage.Status)
 	})
 }
+
+func TestProducer_CreateTopic(t *testing.T) {
+	t.Run("can create topic", func(t *testing.T) {
+		logger := zap.NewNop()
+		producerOpts := messagers.ProducerOptions{
+			BoostrapServers: []string{kafkaBootstrapServers},
+			Logger:          logger,
+		}
+
+		producer, err := messagers.NewProducer(producerOpts)
+		if err != nil {
+			t.Fatalf("Failed to create producer: %v", err)
+		}
+		defer producer.Close()
+
+		topic := uuid.NewString()
+		err = producer.CreateTopic(topic)
+		if err != nil {
+			t.Fatalf("Failed to create topic: %v", err)
+		}
+
+		// Check if the topic was created
+		conn, err := kafka.Dial("tcp", kafkaBootstrapServers)
+		if err != nil {
+			t.Fatalf("Failed to connect to Kafka: %v", err)
+		}
+
+		defer conn.Close()
+
+		topics, err := conn.ReadPartitions()
+		if err != nil {
+			t.Fatalf("Failed to read partitions: %v", err)
+		}
+
+		var found bool
+		for _, t := range topics {
+			if t.Topic == topic {
+				found = true
+				break
+			}
+		}
+
+		assert.True(t, found, "topic not found")
+
+	})
+}
