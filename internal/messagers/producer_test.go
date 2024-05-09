@@ -2,22 +2,27 @@ package messagers_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/darth-raijin/challenger/internal/messagers"
 	"github.com/darth-raijin/challenger/internal/protos"
-	"github.com/golang/protobuf/proto" // Make sure to use the correct protobuf package depending on your generated code
+	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
 
-// TestPublishMessage tests the happy path for publishing a message.
+// TestPublishMessage tests the happy path for publishing a message to Kafka
 func TestPublishMessage(t *testing.T) {
 	t.Run("can produce message", func(t *testing.T) {
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
 		logger := zap.NewNop()
+		messageChannel := make(chan messagers.PublishInput)
+		var wg sync.WaitGroup
 
 		expectedTopic := uuid.NewString()
 
@@ -37,8 +42,7 @@ func TestPublishMessage(t *testing.T) {
 		producerOpts := messagers.ProducerOptions{
 			BoostrapServers: []string{kafkaBootstrapServers},
 			Logger:          logger,
-			Topic:           expectedTopic,
-			Partition:       0,
+			ReadChannel:     messageChannel,
 		}
 
 		producer, err := messagers.NewProducer(producerOpts)
@@ -47,19 +51,39 @@ func TestPublishMessage(t *testing.T) {
 		}
 		defer producer.Close()
 
-		if err := producer.PublishMessage(ctx, expectedKey, expectedMessage); err != nil {
-			t.Fatalf("Failed to publish message: %v", err)
+		err = producer.CreateTopic(expectedTopic)
+		if err != nil {
+			t.Fatalf("Failed to create topic: %v", err)
 		}
 
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := producer.Start(ctx); err != nil {
+				t.Error("Producer failed to start:", err)
+			}
+		}()
+
+		// Send a message
+		messageChannel <- messagers.PublishInput{
+			Key:     expectedKey,
+			Message: expectedMessage,
+			Topic:   expectedTopic,
+		}
+
+		// Setup a Kafka reader to read the message back
 		reader := kafka.NewReader(kafka.ReaderConfig{
 			Brokers:   []string{kafkaBootstrapServers},
 			Topic:     expectedTopic,
 			Partition: 0,
-			MinBytes:  10e3, // 10KB
-			MaxBytes:  10e6, // 10MB
 		})
 		defer reader.Close()
 
+		close(messageChannel)
+
+		wg.Wait()
+
+		// Read the message from Kafka
 		m, err := reader.ReadMessage(ctx)
 		if err != nil {
 			t.Fatalf("Failed to read message: %v", err)
@@ -71,6 +95,7 @@ func TestPublishMessage(t *testing.T) {
 			t.Fatalf("Failed to deserialize message: %v", err)
 		}
 
+		// Assert that the received message matches the expected message
 		assert.Equal(t, expectedMessage.Type, receivedMessage.Type)
 		assert.Equal(t, expectedMessage.Exchange, receivedMessage.Exchange)
 		assert.Equal(t, expectedMessage.BuySymbol, receivedMessage.BuySymbol)
