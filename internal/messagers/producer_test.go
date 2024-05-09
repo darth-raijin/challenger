@@ -2,13 +2,15 @@ package messagers_test
 
 import (
 	"context"
+	"testing"
+
 	"github.com/darth-raijin/challenger/internal/messagers"
+	"github.com/darth-raijin/challenger/internal/protos"
+	"github.com/golang/protobuf/proto" // Make sure to use the correct protobuf package depending on your generated code
 	"github.com/google/uuid"
 	"github.com/segmentio/kafka-go"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
-	"testing"
 )
 
 // TestPublishMessage tests the happy path for publishing a message.
@@ -18,8 +20,16 @@ func TestPublishMessage(t *testing.T) {
 		logger := zap.NewNop()
 
 		expectedTopic := uuid.NewString()
-		expectedMessage := &anypb.Any{
-			Value: []byte(uuid.New().String()),
+
+		expectedMessage := &protos.Order{
+			Exchange:   "some exchange",
+			BuySymbol:  "eth",
+			SellSymbol: "sol",
+			Type:       protos.OrderType_MARKET,
+			Side:       protos.OrderSide_BUY,
+			Quantity:   5,
+			Price:      5,
+			Status:     protos.OrderStatus_PENDING,
 		}
 
 		expectedKey := []byte(uuid.New().String())
@@ -55,9 +65,19 @@ func TestPublishMessage(t *testing.T) {
 			t.Fatalf("Failed to read message: %v", err)
 		}
 
-		if !proto.Equal(expectedMessage, &anypb.Any{Value: m.Value}) {
-			t.Errorf("Mismatch in message content: got %v, want %v", m.Value, expectedMessage.Value)
+		// Deserialize the message into protos.Order
+		receivedMessage := &protos.Order{}
+		if err := proto.Unmarshal(m.Value, receivedMessage); err != nil {
+			t.Fatalf("Failed to deserialize message: %v", err)
 		}
-	})
 
+		assert.Equal(t, expectedMessage.Type, receivedMessage.Type)
+		assert.Equal(t, expectedMessage.Exchange, receivedMessage.Exchange)
+		assert.Equal(t, expectedMessage.BuySymbol, receivedMessage.BuySymbol)
+		assert.Equal(t, expectedMessage.SellSymbol, receivedMessage.SellSymbol)
+		assert.Equal(t, expectedMessage.Side, receivedMessage.Side)
+		assert.Equal(t, expectedMessage.Quantity, receivedMessage.Quantity)
+		assert.Equal(t, expectedMessage.Price, receivedMessage.Price)
+		assert.Equal(t, expectedMessage.Status, receivedMessage.Status)
+	})
 }

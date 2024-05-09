@@ -3,10 +3,11 @@ package messagers
 import (
 	"context"
 	"fmt"
+	"log"
+
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
-	"log"
 )
 
 type ProducerInterface interface {
@@ -36,7 +37,7 @@ func NewProducer(opts ProducerOptions) (ProducerInterface, error) {
 		return nil, fmt.Errorf("brokers list must not be empty")
 	}
 
-	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", opts.Topic, opts.Partition)
+	conn, err := kafka.DialLeader(context.Background(), "tcp", opts.BoostrapServers[0], opts.Topic, opts.Partition)
 	if err != nil {
 		log.Fatal("failed to dial leader:", err)
 	}
@@ -44,15 +45,6 @@ func NewProducer(opts ProducerOptions) (ProducerInterface, error) {
 	writer := &kafka.Writer{
 		Addr:  conn.RemoteAddr(),
 		Topic: opts.Topic,
-	}
-
-	err = writer.WriteMessages(context.Background(), kafka.Message{
-		Key:   []byte("key"),
-		Value: []byte("value"),
-	})
-
-	if err != nil {
-		log.Fatal("failed to write messages:", err)
 	}
 
 	opts.Logger.Info("Kafka producer created")

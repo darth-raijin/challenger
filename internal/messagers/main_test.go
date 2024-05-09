@@ -3,11 +3,12 @@ package messagers_test
 import (
 	"context"
 	"fmt"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/kafka"
 	"log"
 	"os"
 	"testing"
+
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/kafka"
 )
 
 var kafkaBootstrapServers string
@@ -34,11 +35,13 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	port, err := kafkaContainer.MappedPort(ctx, "9092")
+
+	ports, err := kafkaContainer.MappedPort(ctx, "9093")
 	if err != nil {
 		panic(err)
 	}
-	kafkaBootstrapServers = fmt.Sprintf("%s:%s", host, port.Port())
+
+	kafkaBootstrapServers = fmt.Sprintf("%s:%s", host, ports.Port())
 
 	code := m.Run()
 	os.Exit(code)
