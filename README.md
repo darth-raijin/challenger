@@ -1,5 +1,5 @@
 # Challenger
-High frequency tading engine made in Go, to do market arbitrage between different cryptocurrency exchanges.
+High frequency trading engine, for executing price arbitrage across various cryptocurrency exchanges. 
 ![Mascot](gopher.png)
 ## Tools:
 * Apache Cassandra
