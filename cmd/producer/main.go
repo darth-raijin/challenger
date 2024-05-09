@@ -13,15 +13,15 @@ import (
 )
 
 func main() {
-	logger := zap.NewProduction()
+	logger, err := zap.NewProduction()
 
-	configVariables, err := config.LoadConfig(".")
+	cfg, err := config.LoadConfig(".")
 	if err != nil {
-		logger.Error("error loading configVariables", zap.Error(err))
+		logger.Error("error loading cfg", zap.Error(err))
 		os.Exit(1)
 	}
 
-	producer, err := wireDependencies(configVariables, logger, err)
+	producer, err := wireDependencies(cfg, logger, err)
 	if err != nil {
 		logger.Error("error wiring dependencies", zap.Error(err))
 		os.Exit(1)
@@ -30,7 +30,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	for i := 0; i < configVariables.ProducerWorkers; i++ {
+	for i := 0; i < cfg.KafkaProducer.Workers; i++ {
 		go func() {
 			for {
 				inputMessage := protos.Order{
@@ -60,8 +60,9 @@ func main() {
 
 func wireDependencies(config config.Config, logger *zap.Logger, err error) (messagers.ProducerInterface, error) {
 	return messagers.NewProducer(messagers.ProducerOptions{
-		Brokers: []string{"localhost:29092"},
-		Logger:  logger,
-		Topic:   "orders.sol.eth",
+		BoostrapServers: config.Kafka.BootstrapServers,
+		Logger:          logger,
+		Topic:           "orders.sol.eth",
+		Partition:       0,
 	})
 }
