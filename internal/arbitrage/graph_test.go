@@ -51,14 +51,18 @@ func TestFindArbitrage_NoArbitrage(t *testing.T) {
 // TestFindArbitrage with an arbitrage scenario
 func TestFindArbitrage_WithArbitrage(t *testing.T) {
 	graph := arbitrage.NewGraph()
+
 	graph.AddOrder(models.Order{BuySymbol: "BTC", SellSymbol: "ETH", Price: 50})
 	graph.AddOrder(models.Order{BuySymbol: "BTC", SellSymbol: "SOL", Price: 25})
-	graph.AddOrder(models.Order{BuySymbol: "ETH", SellSymbol: "USD", Price: 2000})
+	graph.AddOrder(models.Order{BuySymbol: "ETH", SellSymbol: "USD", Price: 2000}) // Hit this
 	graph.AddOrder(models.Order{BuySymbol: "SOL", SellSymbol: "USD", Price: 500})
-	graph.AddOrder(models.Order{BuySymbol: "USD", SellSymbol: "BTC", Price: 0.0011}) // Creates arbitrage
+	graph.AddOrder(models.Order{BuySymbol: "USD", SellSymbol: "BTC", Price: 0.0011}) // Hit this
 
-	_, profit := graph.FindArbitrage()
+	path, profit := graph.FindArbitrage()
 	if profit <= 1 {
 		t.Errorf("Expected profitable arbitrage, got profit %v", profit)
+	}
+	if len(path) == 0 {
+		t.Error("Expected an arbitrage path but got none")
 	}
 }
